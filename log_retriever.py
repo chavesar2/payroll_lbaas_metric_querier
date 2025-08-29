@@ -27,39 +27,10 @@ from oci.identity import IdentityClient
 from oci.logging import LoggingManagementClient
 from oci.loggingsearch import LogSearchClient
 from oci.loggingsearch.models import SearchLogsDetails
+from payroll_metrics import parse_timeframe
 
 # ───────────────────────── Tiempo ─────────────────────────
 
-def parse_timeframe(tf_str: str):
-    now_utc = datetime.now(timezone.utc)
-    tf = tf_str.strip()
-
-    m = re.match(r'^\[(\d{2}-\d{2}-\d{4}:\d{2}:\d{2}:\d{2})\]-\[(\d{2}-\d{2}-\d{4}:\d{2}:\d{2}:\d{2})\]$', tf)
-    if m:
-        fmt = "%m-%d-%Y:%H:%M:%S"
-        start = datetime.strptime(m.group(1), fmt).replace(tzinfo=timezone.utc)
-        end = datetime.strptime(m.group(2), fmt).replace(tzinfo=timezone.utc)
-        if end <= start:
-            raise ValueError("end_time must be after start_time.")
-        label = f"{start.strftime('%m%d%Y_%H%M%S')}-{end.strftime('%m%d%Y_%H%M%S')}"
-        return start, end, label
-
-    m = re.match(r'^(\d+)\s*(s|m|h|d|w|mo)$', tf, re.IGNORECASE)
-    if m:
-        qty = int(m.group(1)); unit = m.group(2).lower()
-        if unit == "s": delta = timedelta(seconds=qty)
-        elif unit == "m": delta = timedelta(minutes=qty)
-        elif unit == "h": delta = timedelta(hours=qty)
-        elif unit == "d": delta = timedelta(days=qty)
-        elif unit == "w": delta = timedelta(weeks=qty)
-        elif unit == "mo": delta = timedelta(days=30 * qty)
-        else: raise ValueError("Unsupported unit.")
-        start = now_utc - delta
-        end = now_utc
-        label = f"last{qty}{unit}"
-        return start, end, label
-
-    raise ValueError("Invalid timeframe. Use [MM-DD-YYYY:HH:MM:SS]-[...] or 15m/6h/2d/1w/3mo.")
 
 def clamp_14_days(start_dt: datetime, end_dt: datetime, debug=False):
     max_span = timedelta(days=14)
